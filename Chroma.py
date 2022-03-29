@@ -1,6 +1,7 @@
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium import webdriver
+from time import sleep
 import re
 
 class Tile:
@@ -30,7 +31,7 @@ class Chroma:
         self.url = 'https://jessicaup.github.io/dull/'
         self.driver =  webdriver.Firefox()
         self.board = []
-        self.turns = 0
+        self.max_moves = 0
         self.start = {
             "color": (None, None, None),
             "loca": (None, None)
@@ -48,6 +49,9 @@ class Chroma:
         
 
     def find_start(self):
+        if self.start['color'][0] == None:
+            self.grab_target_and_start_colors()
+
         for row in range(len(self.board)):
             for col in range(len(self.board)):
                 tile = self.board[row][col]
@@ -73,6 +77,10 @@ class Chroma:
             for _ in range(10):
                 row.append(Tile(tiles.pop(0)))
             self.board.append(row)
+
+
+    def get_max_moves(self):
+        self.max_moves = int(self.driver.find_element(By.CLASS_NAME, 'dot').text)
 
 
     def start_and_clear_popup(self):
@@ -103,7 +111,10 @@ class Chroma:
                 break
         if self.start['loca'][0] == None:
             self.find_start()
-        row, col = self.start['loca'][0], self.start['loca'][1]
+        self.step(move, self.start['loca'][0], self.start['loca'][1])
+        self.next_level()
+
+    def step(self, move, row, col):
         if move == 'up':
             row -= 1
         if move == 'down':
@@ -113,18 +124,41 @@ class Chroma:
         if move == 'right':
             col += 1
         self.board[row][col].click()
-        self.next_level()
         
-    
 
+    def travel_path(self, path):
+        row, col = self.start['loca'][0], self.start['loca'][1]
+        for move in path:
+            self.step(move, row, col)
+
+
+    def get_all_data(self):
+        self.grab_board()
+        self.grab_target_and_start_colors()
+        self.find_start()
+        self.find_target()
+        self.get_max_moves()
+    
     def play(self, end_round):
+        self.start_and_clear_popup()
+        self.grab_board()
+        self.ask_for_move()
+        for _ in range(end_round-1):
+            self.get_all_data()
+            # path = self.find_path()
+            self.travel_path(path)
+            self.next_level()
+
+
+    def test(self):
         self.start_and_clear_popup()
         self.grab_board()
         self.grab_target_and_start_colors()
         self.find_start()
-        self.ask_for_move()
-        self.find_target()
-        print(self.target['loca'])
+        self.get_max_moves()
+        # self.ask_for_move()
+        # self.find_target()
+        # print(self.target['loca'])
         # print(self.start['loca'])
         # print(self.board)
         # self.close()
@@ -134,4 +168,4 @@ class Chroma:
 
 if __name__ == '__main__':
     chroma = Chroma()
-    chroma.play(5)
+    chroma.test()
