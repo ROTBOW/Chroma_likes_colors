@@ -7,6 +7,7 @@ import re
 class Tile:
     def __init__(self, tile):
         self.tile = tile
+        self.color = Tile.get_rgb(tile.get_attribute("colorid"))
 
     def __str__(self) -> str:
         return f'{self.tile.get_attribute("colorid")}'
@@ -14,8 +15,8 @@ class Tile:
     def __repr__(self) -> str:
         return f'{self.tile.get_attribute("colorid")}'
 
-    def color(self):
-        return Tile.get_rgb(self.tile.get_attribute("colorid"))
+    # def color(self):
+    #     return Tile.get_rgb(self.tile.get_attribute("colorid"))
 
     def click(self):
         self.tile.click()
@@ -55,7 +56,7 @@ class Chroma:
         for row in range(len(self.board)):
             for col in range(len(self.board)):
                 tile = self.board[row][col]
-                if tile.color() == self.start['color']:
+                if tile.color == self.start['color']:
                     self.start['loca'] = (row, col)
 
 
@@ -130,6 +131,35 @@ class Chroma:
         row, col = self.start['loca'][0], self.start['loca'][1]
         for move in path:
             self.step(move, row, col)
+            sleep(0.8)
+
+    def vaild_loca(self, row, col):
+        if not 9 > row > 0:
+            return False
+        if not 9 > col > 0:
+            return False
+        return True
+
+
+    def mix_colors(self, color1, color2):
+        new_color = [None, None, None]
+        for i in range(3):
+            new_color[i] = int((color1[i] + color2[i]) / 2) 
+        return tuple(new_color)
+
+    def find_path(self, loca=None, color=None, visted=[]):
+        if color == self.target['color']:
+            return visted
+        loca = loca or self.start['loca']
+        color = color or self.start['color']
+        for move in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            row, col =  loca[0]+move[0], loca[1]+move[1]
+            if self.vaild_loca(row, col) and self.board[row][col] not in visted:
+                visted.append(self.board[row][col])
+                path = self.find_path(loca, self.mix_colors(color, self.board[row][col].color), visted)
+                if path != None:
+                    return path
+        
 
 
     def get_all_data(self):
@@ -145,7 +175,7 @@ class Chroma:
         self.ask_for_move()
         for _ in range(end_round-1):
             self.get_all_data()
-            # path = self.find_path()
+            path = self.find_path()
             self.travel_path(path)
             self.next_level()
 
@@ -156,7 +186,10 @@ class Chroma:
         self.grab_target_and_start_colors()
         self.find_start()
         self.get_max_moves()
-        # self.ask_for_move()
+        self.ask_for_move()
+        self.grab_board()
+        path = self.find_path()
+        print(path)
         # self.find_target()
         # print(self.target['loca'])
         # print(self.start['loca'])
