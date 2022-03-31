@@ -8,23 +8,43 @@ class Tile:
     def __init__(self, tile):
         self.tile = tile
         self.color = Tile.get_rgb(tile.get_attribute("colorid"))
-
-    def __str__(self) -> str:
-        return f'{self.tile.get_attribute("colorid")}'
-
-    def __repr__(self) -> str:
-        return f'{self.tile.get_attribute("colorid")}'
-
-    # def color(self):
-    #     return Tile.get_rgb(self.tile.get_attribute("colorid"))
+        self.loca = self.__get_loca()
 
     def click(self):
         self.tile.click()
+
+    def __get_loca(self):
+        tile_id = self.tile.get_attribute('id')
+        row = int(tile_id[-2]) if tile_id[-2] != '-' else 0
+        col = int(tile_id[-1])
+        return (row, col)
 
     @classmethod
     def get_rgb(self, rgb):
         rgb = re.search(r'rgb\((?P<red>\d{,3}), (?P<green>\d{,3}), (?P<blue>\d{,3})\)', rgb)
         return (int(rgb.group('red')), int(rgb.group('green')), int(rgb.group('blue')))
+
+    def __str__(self) -> str:
+        return f'{self.tile.get_attribute("colorid")} - {self.loca}'
+
+    def __repr__(self) -> str:
+        return f'{self.tile.get_attribute("colorid")} - {self.loca}'
+
+    def __gt__(self, other):
+        tup_to_num = lambda tup: int(str(tup[0])+str(tup[1]))
+        return  tup_to_num(self.loca) > tup_to_num(other.loca)
+
+    def __ge__(self, other):
+        tup_to_num = lambda tup: int(str(tup[0])+str(tup[1]))
+        return  tup_to_num(self.loca) >= tup_to_num(other.loca)
+
+    def __lt__(self, other):
+        tup_to_num = lambda tup: int(str(tup[0])+str(tup[1]))
+        return  tup_to_num(self.loca) < tup_to_num(other.loca)
+
+    def __le__(self, other):
+        tup_to_num = lambda tup: int(str(tup[0])+str(tup[1]))
+        return  tup_to_num(self.loca) <= tup_to_num(other.loca)
 
 
 class Chroma:
@@ -57,7 +77,7 @@ class Chroma:
             for col in range(len(self.board)):
                 tile = self.board[row][col]
                 if tile.color == self.start['color']:
-                    self.start['loca'] = (row, col)
+                    self.start['loca'] = tile.loca
 
 
     def find_target(self):
@@ -72,11 +92,31 @@ class Chroma:
             self.target['loca'] = (row, col)
 
     def grab_board(self):
-        tiles = self.driver.find_elements(By.CLASS_NAME, 'mix-tile')
+        def quickSort(arr: list) -> list:
+            if len(arr) <= 0:
+                return arr
+
+            pivot = [arr[0]]
+            left_wing = [x for x in arr[1:] if x < pivot[0]]
+            right_wing = [y for y in arr[1:] if y >= pivot[0]]
+
+            return quickSort(left_wing) + pivot + quickSort(right_wing)
+
+        eles = self.driver.find_elements(By.CLASS_NAME, 'mix-tile')
+        tiles = []
+        seen_tiles = set()
+        for tile in eles:
+            new_tile = Tile(tile)
+            if new_tile.loca not in seen_tiles:
+                seen_tiles.add(new_tile.loca)
+                tiles.append(new_tile)
+
+        tiles = quickSort(tiles)
+
         for _ in range(10):
             row = []
             for _ in range(10):
-                row.append(Tile(tiles.pop(0)))
+                row.append(tiles.pop(0))
             self.board.append(row)
 
 
@@ -104,15 +144,9 @@ class Chroma:
             self.next_level(True)
 
 
-    def ask_for_move(self):
-        print('please enter the answer for the first level')
-        while True:
-            move = input('-> ')
-            if move in ['up', 'down', 'left', 'right']:
-                break
-        if self.start['loca'][0] == None:
-            self.find_start()
-        self.step(move, self.start['loca'][0], self.start['loca'][1])
+    def complete_level_one(self):
+        sleep(.5)
+        self.driver.find_element(By.CLASS_NAME, 'arrow-icons').click()
         self.next_level()
 
     def step(self, move, row, col):
@@ -134,9 +168,9 @@ class Chroma:
             sleep(0.8)
 
     def vaild_loca(self, row, col):
-        if not 9 > row > 0:
+        if not 9 >= row >= 0:
             return False
-        if not 9 > col > 0:
+        if not 9 >= col >= 0:
             return False
         return True
 
@@ -150,19 +184,23 @@ class Chroma:
     def find_path(self, loca=None, color=None, visted=[]):
         if color == self.target['color']:
             return visted
+        if len(visted) >= self.max_moves:
+            return None
         loca = loca or self.start['loca']
         color = color or self.start['color']
         for move in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             row, col =  loca[0]+move[0], loca[1]+move[1]
             if self.vaild_loca(row, col) and self.board[row][col] not in visted:
                 visted.append(self.board[row][col])
-                path = self.find_path(loca, self.mix_colors(color, self.board[row][col].color), visted)
+                new_visted = visted.copy()
+                path = self.find_path(loca, self.mix_colors(color, self.board[row][col].color), new_visted)
                 if path != None:
                     return path
         
 
 
     def get_all_data(self):
+        sleep(.5)
         self.grab_board()
         self.grab_target_and_start_colors()
         self.find_start()
@@ -171,8 +209,7 @@ class Chroma:
     
     def play(self, end_round):
         self.start_and_clear_popup()
-        self.grab_board()
-        self.ask_for_move()
+        self.complete_level_one()
         for _ in range(end_round-1):
             self.get_all_data()
             path = self.find_path()
@@ -182,12 +219,9 @@ class Chroma:
 
     def test(self):
         self.start_and_clear_popup()
-        self.grab_board()
-        self.grab_target_and_start_colors()
-        self.find_start()
-        self.get_max_moves()
-        self.ask_for_move()
-        self.grab_board()
+        self.complete_level_one()
+
+        self.get_all_data()
         path = self.find_path()
         print(path)
         # self.find_target()
