@@ -176,32 +176,54 @@ class Chroma:
         return True
 
 
-    def mix_colors(self, color1, color2):
-        new_color = [None, None, None]
-        for i in range(3):
-            new_color[i] = int((color1[i] + color2[i]) / 2) 
-        return tuple(new_color)
+    def rgb_to_cymk(self, rgb):
+        cyan, mage, yell = 255 - rgb[0], 255 - rgb[1], 255 - rgb[2]
+        black = min(cyan, mage, yell)
+        cyan, mage, yell = ((cyan - black)/(255-black)), ((mage - black)/(255-black)), ((yell - black)/(255-black))
+        return ( cyan, mage, yell, black/255 )
 
-    def find_path(self, loca=None, color=None, path=[]):
-        if color == self.target['color']:
+    def cymk_to_rgb(self, cymk):
+        rgb_helper = lambda color_idx: int((1.0 - (cymk[color_idx] * (1.0 - cymk[3]) + cymk[3])) * 255.0 + 0.5)
+        red, green, blue = rgb_helper(0), rgb_helper(1), rgb_helper(2)
+        return (red, green, blue)
+
+    def mix_colors(self, color1, color2=None):
+        if type(color1) != list and color2 != None:
+            color1 = [color1, color2]
+
+        cyan = mage = yell = black = 0
+        for color in color1:
+            color = self.rgb_to_cymk(color)
+            cyan += color[0]
+            mage += color[1]
+            yell += color[2]
+            black += color[3]
+        cyan, mage, yell, black = cyan/len(color1), mage/len(color1), yell/len(color1), black/len(color1)
+        return self.cymk_to_rgb((cyan, mage, yell, black))
+
+    def path_color(self, path):
+        colors = [color.color for color in path]
+        return self.mix_colors(colors)
+
+
+    def find_path(self, loca=None, path=[]):
+        loca = loca or self.start['loca']
+        path = path or [self.board[loca[0]][loca[1]]]
+
+        if self.path_color(path) == self.target['color']:
             return path
         if loca == self.target['loca']:
-            print('color', color)
+            print('color', self.path_color(path))
             self.paths.append(path)
         if self.max_moves+1 <= len(path):
             return None
 
-        loca = loca or self.start['loca']
-        color = color or self.start['color']
-        path = path or [self.board[loca[0]][loca[1]]]
-
         for move in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             row, col =  loca[0]+move[0], loca[1]+move[1]
             if self.vaild_loca(row, col) and self.board[row][col] not in path:
-                print(path)
                 path.append(self.board[row][col])
                 new_path = path.copy()
-                posi_path = self.find_path((row, col), self.mix_colors(color, self.board[row][col].color), new_path)
+                posi_path = self.find_path((row, col), new_path)
                 if posi_path != None:
                     return posi_path
                 else:
@@ -242,11 +264,6 @@ class Chroma:
         # print(self.start['loca'])
         # print(self.board)
         # self.close()
-
-        # (0, 230, 230)
-        # (0, 204, 204)
-        # (24, 153, 178)
-
 
 
 
