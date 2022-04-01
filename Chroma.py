@@ -25,10 +25,10 @@ class Tile:
         return (int(rgb.group('red')), int(rgb.group('green')), int(rgb.group('blue')))
 
     def __str__(self) -> str:
-        return f'{self.tile.get_attribute("colorid")} - {self.loca}'
+        return f'{self.loca}'
 
     def __repr__(self) -> str:
-        return f'{self.tile.get_attribute("colorid")} - {self.loca}'
+        return f'{self.loca}'
 
     def __gt__(self, other):
         tup_to_num = lambda tup: int(str(tup[0])+str(tup[1]))
@@ -53,6 +53,7 @@ class Chroma:
         self.driver =  webdriver.Firefox()
         self.board = []
         self.max_moves = 0
+        self.paths = []
         self.start = {
             "color": (None, None, None),
             "loca": (None, None)
@@ -181,22 +182,31 @@ class Chroma:
             new_color[i] = int((color1[i] + color2[i]) / 2) 
         return tuple(new_color)
 
-    def find_path(self, loca=None, color=None, visted=[]):
+    def find_path(self, loca=None, color=None, path=[]):
         if color == self.target['color']:
-            return visted
-        if len(visted) >= self.max_moves:
+            return path
+        if loca == self.target['loca']:
+            print('color', color)
+            self.paths.append(path)
+        if self.max_moves+1 <= len(path):
             return None
+
         loca = loca or self.start['loca']
         color = color or self.start['color']
+        path = path or [self.board[loca[0]][loca[1]]]
+
         for move in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             row, col =  loca[0]+move[0], loca[1]+move[1]
-            if self.vaild_loca(row, col) and self.board[row][col] not in visted:
-                visted.append(self.board[row][col])
-                new_visted = visted.copy()
-                path = self.find_path(loca, self.mix_colors(color, self.board[row][col].color), new_visted)
-                if path != None:
-                    return path
-        
+            if self.vaild_loca(row, col) and self.board[row][col] not in path:
+                print(path)
+                path.append(self.board[row][col])
+                new_path = path.copy()
+                posi_path = self.find_path((row, col), self.mix_colors(color, self.board[row][col].color), new_path)
+                if posi_path != None:
+                    return posi_path
+                else:
+                    if len(path) > 1:
+                        path.pop(-1)
 
 
     def get_all_data(self):
@@ -223,12 +233,19 @@ class Chroma:
 
         self.get_all_data()
         path = self.find_path()
-        print(path)
+        print('path', path)
+        print('paths', self.paths)
+        print('target color', self.target['color'])
+        # print(self.paths)
         # self.find_target()
         # print(self.target['loca'])
         # print(self.start['loca'])
         # print(self.board)
         # self.close()
+
+        # (0, 230, 230)
+        # (0, 204, 204)
+        # (24, 153, 178)
 
 
 
