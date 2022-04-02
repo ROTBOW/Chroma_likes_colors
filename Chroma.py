@@ -9,16 +9,16 @@ class Tile:
     def __init__(self, tile):
         self.tile = tile
         self.color = Tile.get_rgb(tile.get_attribute("colorid"))
-        self.loca = self.__get_loca()
-
+        self.loca, self.id = self.__get_loca_and_id()
+        
     def click(self):
         self.tile.click()
 
-    def __get_loca(self):
+    def __get_loca_and_id(self):
         tile_id = self.tile.get_attribute('id')
         row = int(tile_id[-2]) if tile_id[-2] != '-' else 0
         col = int(tile_id[-1])
-        return (row, col)
+        return (row, col), tile_id
 
     @classmethod
     def get_rgb(self, rgb):
@@ -136,14 +136,22 @@ class Chroma:
         self.driver.close()
 
 
-    def next_level(self, second_attempt=False):
-        self.driver.implicitly_wait(2)
+    def next_level(self, paths, idx):
+        sleep(1)
         try:
-            if not second_attempt:
-                self.driver.find_element(By.CLASS_NAME, 'level-button').click()
+            self.driver.find_element(By.CLASS_NAME, 'level-button').click()
         except:
-            print('something went wrong, trying again...')
-            self.next_level(True)
+            hearts = self.driver.find_element(By.CLASS_NAME, 'lives').text
+            if int(hearts) <= 2:
+                print('Chroma: Ah, I don\'t have many lives left, I\'ll stop here.')
+                exit()
+            print('Chroma: Hmm... I don\'t think that was the right path. I\'ll try again')
+            idx += 1
+            sleep(.5)
+            self.driver.find_element(By.CLASS_NAME, 'dot').click()
+            self.travel_path(self.paths[paths[idx]])
+            print(f'Chroma: Trying path number {idx+1}')
+            self.next_level(paths, idx)
         finally:
             sleep(.5)
 
@@ -151,7 +159,8 @@ class Chroma:
     def complete_level_one(self):
         sleep(.5)
         self.driver.find_element(By.CLASS_NAME, 'arrow-icons').click()
-        self.next_level()
+        sleep(1)
+        self.driver.find_element(By.CLASS_NAME, 'level-button').click()
         
     def travel_path(self, path):
         sleep(0.6)
@@ -168,7 +177,7 @@ class Chroma:
             elif col == -1:
                 body.send_keys(Keys.LEFT)
             old_tile = tile
-            sleep(0.3)
+            sleep(0.1)
 
 
     def vaild_loca(self, row, col):
@@ -213,7 +222,7 @@ class Chroma:
         loca = loca or self.start['loca']
         path = path or [self.board[loca[0]][loca[1]]]
 
-        if loca == self.target['loca']:
+        if loca == self.target['loca'] and len(path)-1 == self.max_moves:
             self.paths.append(path)
         if self.max_moves+1 <= len(path):
             return None
@@ -231,20 +240,28 @@ class Chroma:
                         path.pop(-1)
 
 
-    def get_best_path(self):
+    def get_best_paths(self):
         tr, tg, tb = self.target['color']
         colors = []
         for i, path in enumerate(self.paths):
             colors.append( (*self.path_color(path), i) )
             
-        colors_diffs = []
+        colors_diffs, best_paths = [], []
         for color in colors:
             r, g, b, idx = color
             diff = sqrt( (tr - r)**2 + (tg - g)**2 + (tb - b)**2 )
             colors_diffs.append((diff, color))
-        best_path = min(colors_diffs)[1][3]
 
-        return self.paths[best_path]
+        while len(colors_diffs) > 0:
+            b_path = min(colors_diffs)[1][3]
+            best_paths.append(b_path)
+            for idx, color_path in enumerate(colors_diffs):
+                if color_path[1][3] == b_path:
+                    colors_diffs.pop(idx)
+                    break
+
+
+        return best_paths
 
 
     def get_all_data(self):
@@ -259,11 +276,14 @@ class Chroma:
         self.start_and_clear_popup()
         self.complete_level_one()
         for _ in range(end_round-1):
+            sleep(1)
             self.get_all_data()
             self.find_paths()
-            path = self.get_best_path()
-            self.travel_path(path)
-            self.next_level()
+            paths = self.get_best_paths()
+            print(f'Chroma: Round {_+2} has {len(paths)} possible paths')
+            self.travel_path(self.paths[paths[0]])
+            self.next_level(paths, 0)
+        print(f'Chroma: All done! I played {end_round} rounds!')
 
 
     def test(self):
@@ -277,4 +297,4 @@ class Chroma:
 
 if __name__ == '__main__':
     chroma = Chroma()
-    chroma.play(5)
+    chroma.play(50)
