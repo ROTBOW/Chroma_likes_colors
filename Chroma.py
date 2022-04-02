@@ -2,6 +2,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 from time import sleep
+from math import sqrt
 import re
 
 class Tile:
@@ -102,7 +103,7 @@ class Chroma:
             right_wing = [y for y in arr[1:] if y >= pivot[0]]
 
             return quickSort(left_wing) + pivot + quickSort(right_wing)
-
+        self.board = []
         eles = self.driver.find_elements(By.CLASS_NAME, 'mix-tile')
         tiles = []
         seen_tiles = set()
@@ -143,30 +144,19 @@ class Chroma:
         except:
             print('something went wrong, trying again...')
             self.next_level(True)
+        finally:
+            sleep(.5)
 
 
     def complete_level_one(self):
         sleep(.5)
         self.driver.find_element(By.CLASS_NAME, 'arrow-icons').click()
         self.next_level()
-
-    def step(self, move, row, col):
-        if move == 'up':
-            row -= 1
-        if move == 'down':
-            row += 1
-        if move == 'left':
-            col -= 1
-        if move == 'right':
-            col += 1
-        self.board[row][col].click()
         
-
     def travel_path(self, path):
-        row, col = self.start['loca'][0], self.start['loca'][1]
-        for move in path:
-            self.step(move, row, col)
-            sleep(0.8)
+        for tile in path[1:]:
+            tile.click()
+            sleep(0.2)
 
     def vaild_loca(self, row, col):
         if not 9 >= row >= 0:
@@ -206,14 +196,11 @@ class Chroma:
         return self.mix_colors(colors)
 
 
-    def find_path(self, loca=None, path=[]):
+    def find_paths(self, loca=None, path=[]):
         loca = loca or self.start['loca']
         path = path or [self.board[loca[0]][loca[1]]]
 
-        if self.path_color(path) == self.target['color']:
-            return path
         if loca == self.target['loca']:
-            print('color', self.path_color(path))
             self.paths.append(path)
         if self.max_moves+1 <= len(path):
             return None
@@ -223,7 +210,7 @@ class Chroma:
             if self.vaild_loca(row, col) and self.board[row][col] not in path:
                 path.append(self.board[row][col])
                 new_path = path.copy()
-                posi_path = self.find_path((row, col), new_path)
+                posi_path = self.find_paths((row, col), new_path)
                 if posi_path != None:
                     return posi_path
                 else:
@@ -231,8 +218,24 @@ class Chroma:
                         path.pop(-1)
 
 
+    def get_best_path(self):
+        tr, tg, tb = self.target['color']
+        colors = []
+        for i, path in enumerate(self.paths):
+            colors.append( (*self.path_color(path), i) )
+            
+        colors_diffs = []
+        for color in colors:
+            r, g, b, idx = color
+            diff = sqrt( (tr - r)**2 + (tg - g)**2 + (tb - b)**2 )
+            colors_diffs.append((diff, color))
+        best_path = min(colors_diffs)[1][3]
+
+        return self.paths[best_path]
+
+
     def get_all_data(self):
-        sleep(.5)
+        sleep(.1)
         self.grab_board()
         self.grab_target_and_start_colors()
         self.find_start()
@@ -244,7 +247,8 @@ class Chroma:
         self.complete_level_one()
         for _ in range(end_round-1):
             self.get_all_data()
-            path = self.find_path()
+            self.find_paths()
+            path = self.get_best_path()
             self.travel_path(path)
             self.next_level()
 
@@ -254,19 +258,10 @@ class Chroma:
         self.complete_level_one()
 
         self.get_all_data()
-        path = self.find_path()
-        print('path', path)
-        print('paths', self.paths)
-        print('target color', self.target['color'])
-        # print(self.paths)
-        # self.find_target()
-        # print(self.target['loca'])
-        # print(self.start['loca'])
-        # print(self.board)
-        # self.close()
+        self.find_paths()
 
 
 
 if __name__ == '__main__':
     chroma = Chroma()
-    chroma.test()
+    chroma.play(5)
