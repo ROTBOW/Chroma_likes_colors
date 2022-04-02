@@ -154,9 +154,22 @@ class Chroma:
         self.next_level()
         
     def travel_path(self, path):
+        sleep(0.6)
+        body = self.driver.find_element(By.TAG_NAME, 'body')
+        old_tile = path[0]
         for tile in path[1:]:
-            tile.click()
-            sleep(0.2)
+            row, col = tile.loca[0] - old_tile.loca[0], tile.loca[1] - old_tile.loca[1]
+            if row == -1:
+                body.send_keys(Keys.UP)
+            elif row == 1:
+                body.send_keys(Keys.DOWN)
+            elif col == 1:
+                body.send_keys(Keys.RIGHT)
+            elif col == -1:
+                body.send_keys(Keys.LEFT)
+            old_tile = tile
+            sleep(0.3)
+
 
     def vaild_loca(self, row, col):
         if not 9 >= row >= 0:
