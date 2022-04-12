@@ -22,6 +22,9 @@ class Tile:
 
     @classmethod
     def get_rgb(self, rgb):
+        '''
+        takes CSS string of the rgb value and returns it as a tuple
+        '''
         rgb = re.search(r'rgb\((?P<red>\d{,3}), (?P<green>\d{,3}), (?P<blue>\d{,3})\)', rgb)
         return (int(rgb.group('red')), int(rgb.group('green')), int(rgb.group('blue')))
 
@@ -103,10 +106,10 @@ class Chroma:
             right_wing = [y for y in arr[1:] if y >= pivot[0]]
 
             return quickSort(left_wing) + pivot + quickSort(right_wing)
-        self.board = []
+
         eles = self.driver.find_elements(By.CLASS_NAME, 'mix-tile')
-        tiles = []
-        seen_tiles = set()
+        self.board, tiles, seen_tiles = [], [], set()
+
         for tile in eles:
             new_tile = Tile(tile)
             if new_tile.loca not in seen_tiles:
@@ -142,7 +145,7 @@ class Chroma:
             self.driver.find_element(By.CLASS_NAME, 'level-button').click()
         except:
             hearts = self.driver.find_element(By.CLASS_NAME, 'lives').text
-            if int(hearts) <= 2:
+            if int(hearts) <= 1:
                 print('Chroma: Ah, I don\'t have many lives left, I\'ll stop here.')
                 exit()
             print('Chroma: Hmm... I don\'t think that was the right path. I\'ll try again')
@@ -271,6 +274,7 @@ class Chroma:
         self.find_start()
         self.find_target()
         self.get_max_moves()
+        self.paths = []
     
     def play(self, end_round):
         self.start_and_clear_popup()
